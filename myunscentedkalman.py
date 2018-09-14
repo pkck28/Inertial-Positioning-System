@@ -1,7 +1,5 @@
 import warnings
 warnings.filterwarnings("ignore")
-
-from scipy import *
 from numpy import *
 import pandas as pd
 from matplotlib.pyplot import *
@@ -36,7 +34,7 @@ def unscentedfilter(dt,fx,hx,points):
 
 def trap(a,b,fx):
     n = len(fx)
-    delx = 0.0013
+    delx = 0.006
     xi = linspace(a,b,n)
     result = zeros((n,1))
     result[0] = 0
@@ -74,16 +72,42 @@ lin_accy = zeros((len(accy_filtered.T),1))
 lin_accz = zeros((len(accz_filtered.T),1))
 
 for i in range(0,len(acc_x)):
-
+    if pitch[i,0] < 0.015:
+        pitch[i,0]=0
+    if roll[i,0] < 0.015:
+        roll[i,0]=0
     #Gravity Compensation
     ginframe = array(([sin(pitch[i,0])],
           [cos(pitch[i,0])*sin(roll[i,0])],
-          [cos(pitch[i,0])*cos(pitch[i,0])]))
+          [cos(roll[i,0])*cos(pitch[i,0])]))
     lin_accx[i,0] = accx_filtered[0,i] - ginframe[0]
     lin_accy[i,0] = accy_filtered[0,i] - ginframe[1]
     lin_accz[i,0] = -1*(accz_filtered[0,i] - ginframe[2])
 
-plot(data.Number,accx_filtered.T,'g')
-plot(data.Number,lin_accx,'b')
+Vel_x = trap(0,len(data.Number),lin_accx)
+Vel_y = trap(0,len(data.Number),lin_accy)
+Vel_z = trap(0,len(data.Number),lin_accz)
+Pos_x = trap(0,len(data.Number),Vel_x)
+Pos_y = trap(0,len(data.Number),Vel_y)
+Pos_z = trap(0,len(data.Number),Vel_z)
+
+subplot(231)
+plot(data.Number,Pos_x)
+title("Pos_X")
+subplot(232)
+plot(data.Number,Pos_y)
+title("Pos_Y")
+subplot(233)
+plot(data.Number,Pos_z)
+title("Pos_Z")
+subplot(234)
+plot(data.Number,roll*180/pi)
+title("Roll")
+subplot(235)
+plot(data.Number,pitch*180/pi)
+title("Pitch")
+subplot(236)
+plot(data.Number,yaw*180/pi)
+title("Yaw")
 show()
 raw_input

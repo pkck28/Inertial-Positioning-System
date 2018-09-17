@@ -15,7 +15,6 @@ acc_x = asanyarray(data.Acc_X)
 acc_y = asanyarray(data.Acc_Y)
 acc_z = asanyarray(data.Acc_Z)
 
-
 def fx(x,dt):
     y = x
     return y
@@ -28,21 +27,20 @@ points = MerweScaledSigmaPoints(2, alpha=.1, beta=2., kappa=1)
 def unscentedfilter(dt,fx,hx,points):
     kf = UnscentedKalmanFilter(dim_x = 2,dim_z=1,dt=dt,hx=hx,fx=fx,points=points)
     kf.Q = array(([100,0],[0,0.1]))
-    kf.R = 70          #More R means smoother curve
+    kf.R = 70                           #More R means smoother curve
     kf.P = eye(2)*500
     return kf
 
 def trap(a,b,fx):
     n = len(fx)
-    delx = 0.006
+    delx = 0.001
     xi = linspace(a,b,n)
     result = zeros((n,1))
-    result[0] = 0
     for i in range(1,len(result)):
         result[i] = ((fx[i-1]+fx[i])*delx/2)+result[i-1]
     return result
 
-ukf = unscentedfilter(0.006,fx,hx,points)
+ukf = unscentedfilter(0.001,fx,hx,points)
 mu_gyrox,cov = ukf.batch_filter(gyro_x)
 mu_gyrox,_,_ = ukf.rts_smoother(mu_gyrox,cov)
 mu_gyroy,cov = ukf.batch_filter(gyro_y)
@@ -80,9 +78,11 @@ for i in range(0,len(acc_x)):
     ginframe = array(([sin(pitch[i,0])],
           [cos(pitch[i,0])*sin(roll[i,0])],
           [cos(roll[i,0])*cos(pitch[i,0])]))
-    lin_accx[i,0] = accx_filtered[0,i] - ginframe[0]
-    lin_accy[i,0] = accy_filtered[0,i] - ginframe[1]
-    lin_accz[i,0] = -1*(accz_filtered[0,i] - ginframe[2])
+    lin_accx[i,0] = 9.8*(accx_filtered[0,i] - ginframe[0])
+    lin_accy[i,0] = 9.8*(accy_filtered[0,i] - ginframe[1])
+    lin_accz[i,0] = -9.8*(accz_filtered[0,i] - ginframe[2])
+    if i <= 100:
+        lin_accz[i,0] = 0
 
 Vel_x = trap(0,len(data.Number),lin_accx)
 Vel_y = trap(0,len(data.Number),lin_accy)
@@ -91,23 +91,32 @@ Pos_x = trap(0,len(data.Number),Vel_x)
 Pos_y = trap(0,len(data.Number),Vel_y)
 Pos_z = trap(0,len(data.Number),Vel_z)
 
-subplot(231)
+subplot(331)
 plot(data.Number,Pos_x)
 title("Pos_X")
-subplot(232)
+subplot(332)
 plot(data.Number,Pos_y)
 title("Pos_Y")
-subplot(233)
+subplot(333)
 plot(data.Number,Pos_z)
 title("Pos_Z")
-subplot(234)
+subplot(334)
 plot(data.Number,roll*180/pi)
 title("Roll")
-subplot(235)
+subplot(335)
 plot(data.Number,pitch*180/pi)
 title("Pitch")
-subplot(236)
+subplot(336)
 plot(data.Number,yaw*180/pi)
 title("Yaw")
+subplot(337)
+plot(data.Number,lin_accx)
+title("Acc_X")
+subplot(338)
+plot(data.Number,lin_accy)
+title("Acc_Y")
+subplot(339)
+plot(data.Number,lin_accz)
+title("Acc_Z")
 show()
 raw_input

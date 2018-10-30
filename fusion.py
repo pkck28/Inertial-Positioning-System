@@ -7,7 +7,7 @@ import numpy as np
 
 dt = 0.001 #Sample Rate for Accelerometer and Gyroscope is 1 KHz
 
-data = pd.read_csv("/home/pavan/Inertial-Positioning-System/imu.csv")
+data = pd.read_csv("/home/pavan/Inertial-Positioning-System/imu_move_alg_X.csv")
 
 GyroX = np.asanyarray(data.Gyro_X)
 GyroY = np.asanyarray(data.Gyro_Y)
@@ -27,7 +27,8 @@ def hx(x):  #Measurement Function
 def Unscentedfilter(zs):   # Filter function
     points = MerweScaledSigmaPoints(2, alpha=.1, beta=2., kappa=1)
     ukf = UnscentedKalmanFilter(dim_x=2, dim_z=1, fx=fx, hx=hx, points=points, dt=dt)
-    ukf.Q = np.array(([1,0],[0,0.1]))
+    ukf.Q = np.array(([1, 0],
+                      [0, 0.1]))
     ukf.R = 50
     ukf.P = np.eye(2)*500
     mu, cov = ukf.batch_filter(zs)
@@ -62,15 +63,15 @@ def filter(w,angle):
 
     H = np.array([[1, 0]], dtype = float)
 
-    Q = np.array([[1, 0],
-                  [0, 1]], dtype = float )
+    Q = np.array([[30, 0],
+                  [0, 30]], dtype = float )
 
     Q = Q*dt
 
     R = np.array([[1]], dtype = float)
 
-    P_previous_prior = np.array([[2.1, 0],
-                                 [0, 2.1]], dtype = float)
+    P_previous_prior = np.array([[0.2, 0],
+                                 [0, 0.2]], dtype = float)
 
     output = [0]*len(w)
 
@@ -119,7 +120,7 @@ def GravityComp(Acc_X,Acc_Y,Acc_Z,roll,pitch): #Gravity Compensator
 def Velocity(Accl):  #Velocity Calculator
     Vf = [0] * l
     x = 0
-
+    
     for i in range(0,l):    
         if i == 0:
             Vf[i] = 0
@@ -181,7 +182,7 @@ print("Compensating Gravity")
 GravityCompAccX, GravityCompAccY, GravityCompAccZ = GravityComp(FilteredAccX,FilteredAccY,FilteredAccZ,AngleX,AngleY)
 
 print("Calculating Velocity")
-VelX = Velocity(GravityCompAccX)
+VelX = Velocity(FilteredAccX)
 VelY = Velocity(GravityCompAccY)
 VelZ = Velocity(GravityCompAccZ)
 
@@ -191,10 +192,12 @@ PosZ = Position(VelZ)
 PosY = Position(VelY)
 
 print("Calculating Postion")
-plt.plot(data.index,GyroY,'r')
-plt.plot(data.index,AngleY,'g')
-plt.plot(data.index,pitch,'b')
+#plt.plot(data.index,AccX,'r')
+plt.plot(data.index,FilteredAccX,'g')
+#plt.plot(data.index,AngleX,'b')
+#plt.plot(data.index,AngleY,'y')
 plt.plot(data.index,GravityCompAccX,'y')
-plt.plot(data.index,PosX,'g')
+#plt.plot(data.index,VelX,'b')
+plt.plot(data.index,PosX,'b')
 plt.grid()
 plt.show()

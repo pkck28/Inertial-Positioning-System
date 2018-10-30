@@ -6,14 +6,11 @@ from filterpy.kalman import UnscentedKalmanFilter
 from filterpy.kalman import MerweScaledSigmaPoints
 import numpy as np
 
-#Registars of MPU9250
-pwr_mgmt_1 = 0x6B
-pwr_mgmt_2 = 0x6C
-config = 0x1A
+#Registars of MPU6050
+pwr_mgmt = 0x6B
 smplrt = 0x19
+config = 0x1A
 gyro_config = 0x1B
-acc_config = 0x1C
-acc_config_2 = 0x1D
 int_enable = 0x38
 acc_xout = 0x3B
 acc_yout = 0x3D
@@ -34,13 +31,10 @@ with open('imu.csv','wb') as csvfile:
 	file.writerow(['Number','Gyro_X','Gyro_Y','Gyro_Z','Acc_X','Acc_Y','Acc_Z'])
 
 def MPU_init():
-	bus.write_byte_data(dev_add,pwr_mgmt_1,1)
-	bus.write_byte_data(dev_add,pwr_mgmt_2,0)
-	bus.write_byte_data(dev_add,config,1)
 	bus.write_byte_data(dev_add,smplrt,7)
-	bus.write_byte_data(dev_add,gyro_config,0)
-	bus.write_byte_data(dev_add,acc_config,0)
-	bus.write_byte_data(dev_add,acc_config_2,0)
+	bus.write_byte_data(dev_add,pwr_mgmt,1)
+	bus.write_byte_data(dev_add,config,1)
+	bus.write_byte_data(dev_add,gyro_config,24)
 	bus.write_byte_data(dev_add,int_enable,1)
 
 def raw_data(addr):

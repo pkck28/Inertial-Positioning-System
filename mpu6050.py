@@ -2,8 +2,6 @@ import smbus
 import time
 import pandas as pd
 import csv
-from filterpy.kalman import UnscentedKalmanFilter
-from filterpy.kalman import MerweScaledSigmaPoints
 import numpy as np
 
 #Registars of MPU6050
@@ -34,7 +32,7 @@ def MPU_init():
 	bus.write_byte_data(dev_add,smplrt,7)
 	bus.write_byte_data(dev_add,pwr_mgmt,1)
 	bus.write_byte_data(dev_add,config,1)
-	bus.write_byte_data(dev_add,gyro_config,24)
+	bus.write_byte_data(dev_add,gyro_config,0)
 	bus.write_byte_data(dev_add,int_enable,1)
 
 def raw_data(addr):
@@ -112,5 +110,3 @@ while True:
 	with open("imu.csv","a") as data:
 		wr = csv.writer(data, dialect='excel')
 		wr.writerow(list)
-
-	print("Gx = %.2f" %p,"\t Gy = %.2f" %q, "\t Gz=%.2f" %r, "\t Ax=%.2f g" %Ax, "\t Ay=%.2f g" %Ay, "\t Az=%.2f g" %Az)

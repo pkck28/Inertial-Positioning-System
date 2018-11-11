@@ -2,14 +2,13 @@ import smbus
 import time
 import pandas as pd
 import csv
-from filterpy.kalman import UnscentedKalmanFilter
-from filterpy.kalman import MerweScaledSigmaPoints
 import numpy as np
+from bitstring import Bits
 
 #Registars of MPU9250
 pwr_mgmt_1 = 0x6B
 pwr_mgmt_2 = 0x6C
-config = 0x1A
+config = 0x1A			# Dec = 26
 smplrt = 0x19
 gyro_config = 0x1B
 acc_config = 0x1C
@@ -21,6 +20,13 @@ acc_zout = 0x3F
 gyr_xout = 0x43
 gyr_yout = 0x45
 gyr_zout = 0x47
+hxl = 0x03
+hxh = 0x04
+hyl = 0x05
+hyh = 0x06
+hzl = 0x07
+hzh = 0x08
+
 offset_Ax = 0
 offset_Ay = 0
 offset_Az = 0
@@ -29,16 +35,16 @@ offset_gyrox = 0
 offset_gyroy = 0
 offset_gyroz = 0
 
-with open('imu.csv','wb') as csvfile:
+with open('imu_move_alg_Y.csv','wb') as csvfile:
 	file = csv.writer(csvfile, delimiter=',', dialect='excel')
-	file.writerow(['Number','Gyro_X','Gyro_Y','Gyro_Z','Acc_X','Acc_Y','Acc_Z'])
+	file.writerow(['Number','Gyro_X','Gyro_Y','Gyro_Z','Acc_X','Acc_Y','Acc_Z','MagX','MagY','MagZ'])
 
 def MPU_init():
 	bus.write_byte_data(dev_add,pwr_mgmt_1,1)
 	bus.write_byte_data(dev_add,pwr_mgmt_2,0)
-	bus.write_byte_data(dev_add,config,1)
+	bus.write_byte_data(dev_add,config,2)
 	bus.write_byte_data(dev_add,smplrt,7)
-	bus.write_byte_data(dev_add,gyro_config,0)
+	bus.write_byte_data(dev_add,gyro_config,1)
 	bus.write_byte_data(dev_add,acc_config,0)
 	bus.write_byte_data(dev_add,acc_config_2,0)
 	bus.write_byte_data(dev_add,int_enable,1)
@@ -51,6 +57,15 @@ def raw_data(addr):
 
 	if (value > 32768):
 		value = value - 65536
+	return value
+
+def magnetometer(addr):
+	low = bus.read_byte_data(dev_add,addr)
+	high = bus.read_byte_data(dev_add,addr+1)
+
+	value = ((high << 8) | low)
+
+	value = Bits(bin='value')
 	return value
 
 bus = smbus.SMBus(1)
@@ -114,8 +129,12 @@ while True:
 	q = gyro_y/131.0 - offset_gyroy
 	r = gyro_z/131.0 - offset_gyroz
 
-	list = [i,p,q,r,Ax,Ay,Az]
-	with open("imu.csv","a") as data:
+	mangx = magnetometer(hxl)
+	mangy = magnetometer(hyl)
+	mangz = magnetometer(hzl)
+
+	list = [i,p,q,r,Ax,Ay,Az,mangx,mangy,mangz]
+	with open("imu_move_alg_Y.csv","a") as data:
 		wr = csv.writer(data, dialect='excel')
 		wr.writerow(list)
 

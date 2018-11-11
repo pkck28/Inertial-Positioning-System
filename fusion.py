@@ -7,14 +7,14 @@ import numpy as np
 
 dt = 0.001 #Sample Rate for Accelerometer and Gyroscope is 1 KHz
 
-data = pd.read_csv("/home/pavan/Inertial-Positioning-System/imu_move_alg_X.csv")
+data = pd.read_csv("/home/dhruv/Inertial-Positioning-System/imu_rotation_abt_Y.csv")
 
 GyroX = np.asanyarray(data.Gyro_X)
 GyroY = np.asanyarray(data.Gyro_Y)
 GyroZ = np.asanyarray(data.Gyro_Z)
-AccX = np.asanyarray(data.Acc_X)
-AccY = np.asanyarray(data.Acc_Y)
-AccZ = np.asanyarray(data.Acc_Z)
+AccX = -1*np.asanyarray(data.Acc_X)
+AccY = -1*np.asanyarray(data.Acc_Y)
+AccZ = -1*np.asanyarray(data.Acc_Z)
 
 l = len(GyroX)
 
@@ -27,8 +27,8 @@ def hx(x):  #Measurement Function
 def Unscentedfilter(zs):   # Filter function
     points = MerweScaledSigmaPoints(2, alpha=.1, beta=2., kappa=1)
     ukf = UnscentedKalmanFilter(dim_x=2, dim_z=1, fx=fx, hx=hx, points=points, dt=dt)
-    ukf.Q = np.array(([1, 0],
-                      [0, 0.1]))
+    ukf.Q = np.array(([0.1, 0.0],
+                      [0.0, 0.1]))
     ukf.R = 50
     ukf.P = np.eye(2)*500
     mu, cov = ukf.batch_filter(zs)
@@ -63,12 +63,12 @@ def filter(w,angle):
 
     H = np.array([[1, 0]], dtype = float)
 
-    Q = np.array([[30, 0],
+    Q = np.array([[0.1, 0],
                   [0, 30]], dtype = float )
 
     Q = Q*dt
 
-    R = np.array([[1]], dtype = float)
+    R = np.array([[70]], dtype = float)
 
     P_previous_prior = np.array([[0.2, 0],
                                  [0, 0.2]], dtype = float)
@@ -118,34 +118,25 @@ def GravityComp(Acc_X,Acc_Y,Acc_Z,roll,pitch): #Gravity Compensator
     return lin_AccX,lin_AccY,lin_AccZ 
 
 def Velocity(Accl):  #Velocity Calculator
-    Vf = [0] * l
-    x = 0
-    
-    for i in range(0,l):    
-        if i == 0:
-            Vf[i] = 0
-        elif i == 1:
-            Vf[i] = 0.0005*( 9.81*(Accl[0] + Accl[i]) )
-        else:
-            x = 9.81*Accl[i-1] + x
-            Vf[i] = 0.0005*( 9.81*(Accl[0] + Accl[i]) + (2*x) )
+    n = l
+    delx = 0.007
+    xi = np.linspace(0,l,n)
+    result = np.zeros((n,1))
+    result[0] = 0
+    for i in range(1,len(result)):
+        result[i] = ((Accl[i-1]+Accl[i])*delx/2)+result[i-1]
+    return result
 
-    return Vf
 
 def Position(Vel):  #Position Calculator
-    X = [0] * l
-    x = 0
-
-    for i in range(0,l):    
-        if i == 0:
-            X[i] = 0
-        elif i == 1:
-            X[i] = 0.0005*(Vel[0] + Vel[i])
-        else:
-            x = Vel[i-1] + x
-            X[i] = 0.0005*(Vel[0]+Vel[i]+2*x)
-
-    return X
+    n = l
+    delx = 0.007
+    xi = np.linspace(0,l,n)
+    result = np.zeros((n,1))
+    result[0] = 0
+    for i in range(1,len(result)):
+        result[i] = ((Vel[i-1]+Vel[i])*delx/2)+result[i-1]
+    return result
 
 def Measurement_Pitch(a,b,c): #Calculating Angles from accelerometer
     d = [0]*len(a)
@@ -192,12 +183,17 @@ PosZ = Position(VelZ)
 PosY = Position(VelY)
 
 print("Calculating Postion")
-#plt.plot(data.index,AccX,'r')
-plt.plot(data.index,FilteredAccX,'g')
-#plt.plot(data.index,AngleX,'b')
-#plt.plot(data.index,AngleY,'y')
-plt.plot(data.index,GravityCompAccX,'y')
-#plt.plot(data.index,VelX,'b')
-plt.plot(data.index,PosX,'b')
+plt.plot(data.index,AccZ,'r',label="Unfiltered")
+plt.plot(data.index,FilteredAccZ,'g',label="Filtered")
+#plt.plot(data.index,AngleY,'b')
+#plt.plot(data.index,AngleY,'y',label="Angle_Y")
+#plt.plot(data.index,GravityCompAccX,'y',label="Compensated")
+#plt.plot(data.index,VelX,label="vel")
+#plt.plot(data.index,PosX,label="Position")
+# plt.plot(data.index,GyroX,label="Raw angle")
+#plt.plot(data.index,(AngleY),label="Pitch")
+#plt.plot(data.index,AngleX,label="Pitch")
+
 plt.grid()
+plt.legend()
 plt.show()

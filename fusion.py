@@ -3,20 +3,28 @@ from filterpy.kalman import KalmanFilter
 from filterpy.kalman import MerweScaledSigmaPoints
 import matplotlib.pyplot as plt
 import pandas as pd
-import numpy as np
+from numpy import *
 
 dt = 0.001 #Sample Rate for Accelerometer and Gyroscope is 1 KHz
 
-data = pd.read_csv("/home/dhruv/Inertial-Positioning-System/imu_rotation_abt_Y.csv")
+data = pd.read_csv("/home/pavan/Desktop/Inertial-Positioning-System/imu.csv")
 
-GyroX = np.asanyarray(data.Gyro_X)
-GyroY = np.asanyarray(data.Gyro_Y)
-GyroZ = np.asanyarray(data.Gyro_Z)
-AccX = -1*np.asanyarray(data.Acc_X)
-AccY = -1*np.asanyarray(data.Acc_Y)
-AccZ = -1*np.asanyarray(data.Acc_Z)
+GyroX = asanyarray(data.Gyro_X)
+GyroY = asanyarray(data.Gyro_Y)
+GyroZ = asanyarray(data.Gyro_Z)
+AccX = asanyarray(data.Acc_X)
+AccY = asanyarray(data.Acc_Y)
+AccZ = asanyarray(data.Acc_Z)
 
 l = len(GyroX)
+
+"""for i in range(0,l):
+    if -0.01 < AccX[i] < 0.01:
+            AccX[i] = 0
+    if -0.01 < AccY[i] < 0.01:
+            AccY[i] = 0
+    if -0.01 < AccZ[i] < 0.01:
+            AccZ[i] = 0"""
 
 def fx(x,dt):  #State Transformation Function
     return x
@@ -27,10 +35,10 @@ def hx(x):  #Measurement Function
 def Unscentedfilter(zs):   # Filter function
     points = MerweScaledSigmaPoints(2, alpha=.1, beta=2., kappa=1)
     ukf = UnscentedKalmanFilter(dim_x=2, dim_z=1, fx=fx, hx=hx, points=points, dt=dt)
-    ukf.Q = np.array(([0.1, 0.0],
-                      [0.0, 0.1]))
-    ukf.R = 50
-    ukf.P = np.eye(2)*500
+    ukf.Q = array(([50, 0],
+                   [0, 50]))
+    ukf.R = 100
+    ukf.P = eye(2)*2
     mu, cov = ukf.batch_filter(zs)
 
     x,_,_ = ukf.rts_smoother(mu, cov)
@@ -45,56 +53,54 @@ def Angle(Gyro):  # Angle Calculator
         if i == 0:
             thetaf[i] = 0
         elif i == 1:
-            thetaf[i] = 0.0005*(Gyro[0] + Gyro[i])
+            thetaf[i] = (dt/2)*(Gyro[0] + Gyro[i])
         else:
             x = Gyro[i-1] + x
-            thetaf[i] = 0.0005*(Gyro[0]+Gyro[i]+2*x)
+            thetaf[i] = (dt/2)*(Gyro[0]+Gyro[i]+2*x)
 
     return thetaf
 
 def filter(w,angle):
-    A = np.array([[1, -dt],
-                  [0, 1]], dtype = float )
+    A = array([[1, dt],
+               [0, 1]], dtype = float )
 
-    B = np.array([[dt],
-                  [0]], dtype = float)
- 
+    B = array([[0],
+               [1]], dtype = float)
+
     A_transpose = A.transpose()
 
-    H = np.array([[1, 0]], dtype = float)
+    H = array([[1, 0]], dtype = float)
 
-    Q = np.array([[0.1, 0],
-                  [0, 30]], dtype = float )
+    Q = array([[50, 0],
+               [0, 50]], dtype = float )
 
-    Q = Q*dt
+    R = array([[0.01]], dtype = float)
 
-    R = np.array([[70]], dtype = float)
+    P_previous_prior = array([[2, 0],
+                              [0, 2]], dtype = float)
 
-    P_previous_prior = np.array([[0.2, 0],
-                                 [0, 0.2]], dtype = float)
+    output = [0]*l
 
-    output = [0]*len(w)
-
-    x = np.array([[0],
-                  [0]], dtype = float)
-
+    x = array([[0],
+               [0]], dtype = float)
+    
     for i in range(0,l):
         z_present = angle[i]
 
         #Prediction
-        x_current_priori = np.dot(A,x) + np.dot(B,w[i])
-        a = np.dot(P_previous_prior,A_transpose)
-        P_current_priori = np.dot(A, a) + Q
+        x_current_priori = dot(A,x) + dot(B,w[i])
+        a = dot(P_previous_prior,A_transpose)
+        P_current_priori = dot(A, a) + Q
 
         #Update
-        m = np.dot( np.dot(H , P_current_priori), H.transpose() )
+        m = dot( dot(H , P_current_priori), H.transpose() )
         n = m + R
-        K_current = np.dot( P_current_priori, H.transpose() ) / n
-        x_current_posterior = x_current_priori + np.dot( K_current, z_present - np.dot(H,x_current_priori) )  
-        P_current_posterior = P_current_priori - np.dot( np.dot( K_current, H ), P_current_priori)
+        K_current = dot( P_current_priori, H.transpose() ) / n
+        x_current_posterior = x_current_priori + dot( K_current, z_present - dot(H,x_current_priori) )  
+        P_current_posterior = P_current_priori - dot( dot( K_current, H ), P_current_priori)
         
         #Assignment of new variables
-        output[i] = x_current_posterior[0]
+        output[i] = x_current_posterior[0,0]
         P_previous_prior = P_current_posterior
         x = x_current_posterior
 
@@ -104,50 +110,87 @@ def GravityComp(Acc_X,Acc_Y,Acc_Z,roll,pitch): #Gravity Compensator
     lin_AccX = [0] * l
     lin_AccY = [0] * l
     lin_AccZ = [0] * l
-    g = np.array([0, 0, 1], dtype = float)
-    for i in range(0,l):
-        DCM = np.array([ [np.cos(pitch[i]), np.sin(roll[i])*np.sin(pitch[i]), -np.cos(roll[i])*np.sin(pitch[i])],
-                         [0 , np.cos(roll[i]), np.sin(roll[i])],
-                         [np.sin(pitch[i]), -np.sin(roll[i])*np.cos(pitch[i]), np.cos(roll[i])*np.cos(pitch[i])] ], dtype = float)
-        Acc = np.array([[Acc_X[i], Acc_Y[i], Acc_Z[i]]], dtype = float)
-        Acc_Inertial = np.dot(Acc,DCM)
-        final_acc = Acc_Inertial - g
-        lin_AccX[i] = final_acc[0,0]
-        lin_AccY[i] = final_acc[0,1]
-        lin_AccZ[i] = final_acc[0,2]
+    g = array([0, 0, -1], dtype = float)
+    for i in range(0,l): 
+        """if -0.01 < Acc_X[i] < 0.01:
+            Acc_X[i] = 0
+        if -0.01 < Acc_Y[i] < 0.01:
+            Acc_Y[i] = 0
+        if -0.01 < Acc_Z[i] < 0.01:
+            Acc_Z[i] = 0""" 
+        ginframe = array([ [sin(pitch[i])],
+                           [cos(pitch[i])*sin(roll[i])],
+                           [cos(roll[i])*cos(pitch[i])] ], dtype = float )
+        #Acc = array([[Acc_X[i], Acc_Y[i], Acc_Z[i]]], dtype = float)
+        #final_acc = Acc + dot(g,DCM)
+        lin_AccX[i] = Acc_X[i] + ginframe[0,0]
+        lin_AccY[i] = Acc_Y[i] + ginframe[1,0]
+        lin_AccZ[i] = -Acc_Z[i] + ginframe[2,0]
     return lin_AccX,lin_AccY,lin_AccZ 
 
 def Velocity(Accl):  #Velocity Calculator
-    n = l
-    delx = 0.007
-    xi = np.linspace(0,l,n)
-    result = np.zeros((n,1))
-    result[0] = 0
-    for i in range(1,len(result)):
-        result[i] = ((Accl[i-1]+Accl[i])*delx/2)+result[i-1]
-    return result
+    Vf = [0] * l
+    x = 0
 
+    for i in range(0,l):    
+        if -0.02 < Accl[i] < 0.02:
+            Accl[i] = 0
+        if i == 0:
+            Vf[i] = 0
+        elif i == 1:
+            Vf[i] = (dt/2)*( 9.81*(Accl[0] + Accl[i]) )
+        else:
+            x = 9.81*Accl[i-1] + x
+            Vf[i] = (dt/2)*( 9.81*(Accl[0] + Accl[i]) + (2*x) )
+
+
+    return Vf
 
 def Position(Vel):  #Position Calculator
-    n = l
-    delx = 0.007
-    xi = np.linspace(0,l,n)
-    result = np.zeros((n,1))
-    result[0] = 0
-    for i in range(1,len(result)):
-        result[i] = ((Vel[i-1]+Vel[i])*delx/2)+result[i-1]
-    return result
+    Pf = [0] * l
+    y = 0
+
+    for i in range(0,l):  
+        """if -0.05 < Vel[i] < 0.0:
+            Vel[i] = 0"""
+        if i == 0:
+            Pf[i] = 0
+        elif i == 1:
+            Pf[i] = (dt/2)*(Vel[0] + Vel[i])
+        else:
+            y = Vel[i-1] + y
+            Pf[i] = (dt/2)*(Vel[0] + Vel[i] + 2*y)
+        
+
+    return Pf
+
+def PositionZ(Vel):  #Position Calculator
+    Pf = [0] * l
+    y = 0
+
+    for i in range(0,l):  
+        """if -0.05 < Vel[i] < 0.0:
+            Vel[i] = 0"""
+        if i == 0:
+            Pf[i] = 0
+        elif i == 1:
+            Pf[i] = (dt/2)*(Vel[0] + Vel[i])
+        else:
+            y = Vel[i-1] + y
+            Pf[i] = (dt/2)*(Vel[0] + Vel[i] + 2*y)
+
+    return Pf
 
 def Measurement_Pitch(a,b,c): #Calculating Angles from accelerometer
     d = [0]*len(a)
     for i in range(0,len(a)):
-        d[i] = np.arctan(-a[i]/np.sqrt(c[i]*c[i] + b[i]*b[i]))
+        d[i] = arctan(a[i]/sqrt(c[i]*c[i] + a[i]*a[i]))
     return d
 
 def Measurement_Roll(a,b,c): #Calculating Angles from accelerometer
     d = [0]*len(a)
     for i in range(0,len(a)):
-        d[i] = np.arctan(a[i]/np.sqrt(c[i]*c[i] + b[i]*b[i]))
+        d[i] = arctan(a[i]/sqrt(c[i]*c[i] + a[i]*a[i]))
     return d
 
 print("Filtering Acclerometer")
@@ -170,30 +213,72 @@ print("Calculating Angles")
 AngleZ = Angle(FilteredGyroZ)
 
 print("Compensating Gravity")
-GravityCompAccX, GravityCompAccY, GravityCompAccZ = GravityComp(FilteredAccX,FilteredAccY,FilteredAccZ,AngleX,AngleY)
+GravityCompAccX, GravityCompAccY, GravityCompAccZ = GravityComp(AccX,FilteredAccY,FilteredAccZ,AngleX,AngleY)
 
 print("Calculating Velocity")
-VelX = Velocity(FilteredAccX)
+VelX = Velocity(GravityCompAccX)
 VelY = Velocity(GravityCompAccY)
 VelZ = Velocity(GravityCompAccZ)
 
-print("Calculating Velocity")
+print("Calculating Position")
 PosX = Position(VelX)
-PosZ = Position(VelZ)
 PosY = Position(VelY)
+PosZ = PositionZ(VelZ)
 
-print("Calculating Postion")
-plt.plot(data.index,AccZ,'r',label="Unfiltered")
-plt.plot(data.index,FilteredAccZ,'g',label="Filtered")
-#plt.plot(data.index,AngleY,'b')
-#plt.plot(data.index,AngleY,'y',label="Angle_Y")
-#plt.plot(data.index,GravityCompAccX,'y',label="Compensated")
-#plt.plot(data.index,VelX,label="vel")
-#plt.plot(data.index,PosX,label="Position")
-# plt.plot(data.index,GyroX,label="Raw angle")
-#plt.plot(data.index,(AngleY),label="Pitch")
-#plt.plot(data.index,AngleX,label="Pitch")
-
-plt.grid()
+print(l)
+f  = plt.figure(1)
+plt.subplot(311)
+plt.plot(data.index,AccX,'y', label="Raw Acc")
+plt.plot(data.index,FilteredAccX,'r', label = "Filt. Acc")
+plt.plot(data.index,VelX,'g', label = "Lin Vel")
+plt.plot(data.index,GravityCompAccX,'b', label = "Lin. Acc")
+plt.plot(data.index,PosX,'m', label = "Pos")
+plt.title("X")
 plt.legend()
+plt.grid()
+plt.subplot(312)
+plt.plot(data.index,AccY,'y', label="Raw Acc")
+plt.plot(data.index,FilteredAccY,'r', label = "Filt. Acc")
+plt.plot(data.index,VelY,'g', label = "Lin Vel")
+plt.plot(data.index,GravityCompAccY,'b', label = "Lin Acc")
+plt.plot(data.index,PosY,'m', label = "Pos")
+plt.title("Y")
+plt.legend()
+plt.grid()
+plt.subplot(313)
+plt.plot(data.index,AccZ,'y', label="Raw Acc")
+plt.plot(data.index,FilteredAccZ,'r', label = "Filt. Acc")
+plt.plot(data.index,VelZ,'g', label = "Lin Vel")
+plt.plot(data.index,GravityCompAccZ,'b', label = "Lin Acc")
+plt.plot(data.index,PosZ,'m', label = "Pos")
+plt.title("Z")
+plt.legend()
+plt.grid()
+f.show()
+
+g  = plt.figure(2)
+plt.subplot(311)
+plt.plot(data.index,GyroX,'y', label="Raw GyroZ")
+#plt.plot(data.index,FilteredGyroX,'r', label = "Filt. GyroZ")
+plt.plot(data.index,AngleX,'g', label = "Angle X")
+plt.title("X")
+plt.legend()
+plt.grid()
+plt.subplot(312)
+plt.plot(data.index,GyroY,'y', label="Raw GyroZ")
+#plt.plot(data.index,FilteredGyroY,'r', label = "Filt. GyroZ")
+plt.plot(data.index,AngleY,'g', label = "Angle Y")
+plt.title("Y")
+plt.legend()
+plt.grid()
+plt.subplot(313)
+plt.plot(data.index,GyroZ,'y', label="Raw GyroZ")
+plt.plot(data.index,FilteredGyroZ,'r', label = "Filt. GyroZ")
+plt.plot(data.index,AngleZ,'g', label = "Angle Z")
+plt.title("Z")
+plt.legend()
+plt.grid()
+g.show()
+#plt.plot(data.index,GyroX,'y', label="Raw Acc")
+
 plt.show()
